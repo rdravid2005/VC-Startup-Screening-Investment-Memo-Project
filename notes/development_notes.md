@@ -11,13 +11,21 @@
 
 ## Key implementation choices
 
+### Interface system
+
+The original dark, gradient-heavy sidebar interface was replaced after reviewing current product and public-sector design guidance. Version 1 now uses a top workspace switcher, original VentureLens mark, warm editorial palette, square controls, flat hierarchy, and purpose-led comparison charts. Navigation recedes while the current company and decision evidence dominate. The form follows one vertical reading order with numbered evidence groups and uses blank numeric text fields so optional information no longer requires a second “use this value” control.
+
+### CSV onboarding
+
+CSV import is treated as a user workflow, not just a file picker. The Company Review workspace states the accepted type before upload, exposes a downloadable production-compatible template, renders the supported schema, and returns row-specific validation messages. The same template and a detailed data dictionary are committed under `sample_data/` so GitHub users can prepare an upload without first running the app.
+
 ### Missing data
 
 Missing numeric values remain `None`; they are never changed to zero. Each scoring function assigns a visible conservative-neutral component when evidence is absent and records the missing item as an evidence gap. This avoids accidentally treating an undisclosed metric as genuine zero performance.
 
 ### Overall score and risk
 
-The overall score is a weighted sum of nine categories. Risk Resilience is positively oriented—a higher value means fewer observed concerns—so all radar axes point in the same favorable direction. The final risk rating is calculated separately from the overall score and severity mix. This allows a high-opportunity startup to remain visibly high-risk.
+The overall score is a weighted sum of nine categories. Risk Resilience is positively oriented—a higher value means fewer observed concerns—so every category comparison points in the same favorable direction. The final risk rating is calculated separately from the overall score and severity mix. This allows a high-opportunity startup to remain visibly high-risk.
 
 ### Qualitative evidence
 

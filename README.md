@@ -13,6 +13,7 @@ It does not make investment decisions or predict company outcomes.
 ### Startup Screener
 
 - Enter a company manually, load one of four fictional profiles, or upload compatible CSV data.
+- Move between Briefing, Company Review, IC Scorecard, and Memo Builder from persistent top navigation—no sidebar.
 - Capture company, market, product, traction, unit-economics, financial, team, competitive, and risk evidence.
 - Keep truly missing metrics distinct from reported zeros.
 - Validate required fields, numeric ranges, and inconsistent capitalization inputs.
@@ -22,7 +23,7 @@ It does not make investment decisions or predict company outcomes.
 - Compare nine explainable 0–100 category scores.
 - Inspect every rule-based rationale, category weight, and evidence gap.
 - Review an overall attractiveness screen separately from the final risk rating.
-- Explore radar, bar, and risk-severity visualizations.
+- Explore purpose-led category, weighted-contribution, and risk-severity visualizations.
 - Generate adaptive diligence questions from the supplied evidence.
 
 ### Investment Memo
@@ -128,13 +129,27 @@ Thresholds are intentionally readable in [`src/scoring_model.py`](src/scoring_mo
 
 No real private-company data is bundled. A complete demonstration memo for AtlasGrid is available at [`results/example_investment_memo.md`](results/example_investment_memo.md).
 
-For uploads, use the sample CSV headers as the template. The required columns are `startup_name`, `product_description`, and `target_customer`; other known fields are optional, and unknown columns are ignored.
+## CSV upload format
+
+Use [`sample_data/upload_template.csv`](sample_data/upload_template.csv) for imports. The same file can be downloaded directly from the Company Review workspace.
+
+The upload workflow includes:
+
+- A visible `.csv` restriction and plain-language setup instructions
+- A downloadable template containing the exact supported headers and one fictional example row
+- An in-app table covering every accepted column, type, requirement, and purpose
+- Row-specific validation messages for missing or malformed fields
+- A repository data dictionary at [`sample_data/CSV_DATA_DICTIONARY.md`](sample_data/CSV_DATA_DICTIONARY.md)
+
+The required columns are `startup_name`, `product_description`, and `target_customer`. All other supported fields are optional, and unknown extra columns are ignored. Numeric currency fields should not contain symbols or commas; percentages use percentage points, so `78` means 78%.
 
 ## Repository structure
 
 ```text
 .
 ├── app.py                         # Streamlit navigation and page composition
+├── assets/
+│   └── venturelens-mark.svg       # Original VentureLens logo mark
 ├── src/
 │   ├── startup_inputs.py          # Schema, normalization, validation, form, CSV loading
 │   ├── scoring_model.py           # Scores, weights, rationales, flags, questions
@@ -142,7 +157,9 @@ For uploads, use the sample CSV headers as the template. The required columns ar
 │   ├── visualizations.py          # Reusable Plotly figures
 │   └── utils.py                   # Parsing, formatting, and safe math helpers
 ├── sample_data/
-│   └── sample_startups.csv        # Four fictional startup profiles
+│   ├── sample_startups.csv        # Four fictional startup profiles
+│   ├── upload_template.csv         # Downloadable import template
+│   └── CSV_DATA_DICTIONARY.md      # Column-by-column upload guidance
 ├── results/
 │   └── example_investment_memo.md # Checked-in demonstration output
 ├── tests/                         # Data, scoring, memo, and UI-flow tests
@@ -167,6 +184,7 @@ The tests cover:
 - Structured memo payloads and all required sections
 - API client injection, no-key fallback, and output guardrails
 - End-to-end Streamlit navigation from sample loading through memo generation
+- Downloadable CSV-template compatibility with the production loader
 
 GitHub Actions runs the same suite on pushes and pull requests.
 
@@ -178,6 +196,7 @@ GitHub Actions runs the same suite on pushes and pull requests.
 - **Graceful degradation:** The product remains fully demonstrable without paid API access.
 - **Guarded language:** Outputs discuss an investment case conditionally and avoid direct investment instructions.
 - **Modular code:** Data, scoring, memo, and visualization logic are independently testable.
+- **Institutional visual hierarchy:** Quiet navigation, editorial typography, flat surfaces, and decision-relevant data density replace decorative AI-dashboard patterns.
 
 ## Known limitations
 

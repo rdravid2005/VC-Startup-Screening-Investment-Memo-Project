@@ -13,6 +13,8 @@ from src.utils import is_missing, optional_float, optional_int
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SAMPLE_DATA_PATH = PROJECT_ROOT / "sample_data" / "sample_startups.csv"
+CSV_TEMPLATE_PATH = PROJECT_ROOT / "sample_data" / "upload_template.csv"
+CSV_DICTIONARY_PATH = PROJECT_ROOT / "sample_data" / "CSV_DATA_DICTIONARY.md"
 
 TEXT_FIELDS = (
     "startup_name", "industry", "business_model", "problem_statement",
@@ -56,6 +58,36 @@ DEFAULT_STARTUP: Dict[str, Any] = {
     "competitors": "", "differentiation": "", "founder_notes": "",
     "risk_notes": "",
 }
+
+CSV_FIELD_DEFINITIONS = (
+    ("startup_name", "Required", "Text", "Company name"),
+    ("product_description", "Required", "Text", "What the product does"),
+    ("target_customer", "Required", "Text", "Primary buyer or user"),
+    ("industry", "Optional", "Text", "Sector or industry"),
+    ("business_model", "Optional", "Text", "Commercial model"),
+    ("problem_statement", "Optional", "Text", "Customer problem and current pain"),
+    ("geography", "Optional", "Text", "Primary operating market"),
+    ("stage", "Optional", "Text", "Pre-seed through Growth"),
+    ("revenue_model", "Optional", "Text", "How the company charges"),
+    ("estimated_market_size", "Optional", "USD number", "Addressable market without $ or commas"),
+    ("market_growth_rate", "Optional", "Percentage", "Enter 12 for 12%"),
+    ("market_notes", "Optional", "Text", "Source or calculation context"),
+    ("current_arr", "Optional", "USD number", "ARR or annualized revenue"),
+    ("revenue_growth_rate", "Optional", "Percentage", "Enter 65 for 65%"),
+    ("gross_margin", "Optional", "Percentage", "Enter 78 for 78%"),
+    ("monthly_burn_rate", "Optional", "USD number", "Monthly net cash burn"),
+    ("runway_months", "Optional", "Number", "Months of cash runway"),
+    ("customer_count", "Optional", "Whole number", "Paying customers"),
+    ("cac", "Optional", "USD number", "Customer acquisition cost"),
+    ("ltv", "Optional", "USD number", "Customer lifetime value"),
+    ("retention_rate", "Optional", "Percentage", "Annual customer retention"),
+    ("funding_raised", "Optional", "USD number", "Total capital raised"),
+    ("valuation", "Optional", "USD number", "Latest valuation"),
+    ("competitors", "Optional", "Text", "Direct and indirect alternatives"),
+    ("differentiation", "Optional", "Text", "Why customers choose the company"),
+    ("founder_notes", "Optional", "Text", "Relevant experience and team gaps"),
+    ("risk_notes", "Optional", "Text", "Known material risks"),
+)
 
 
 def blank_startup() -> Dict[str, Any]:
@@ -163,90 +195,99 @@ def profile_options(profiles: Iterable[Mapping[str, Any]]) -> Dict[str, Dict[str
     return {str(profile["startup_name"]): dict(profile) for profile in profiles}
 
 
-def _number_value(startup: Mapping[str, Any], field: str) -> float:
-    value = startup.get(field)
-    return 0.0 if value is None else float(value)
+def _number_text(value: Any) -> str:
+    """Format an optional number for an editable text input."""
+    if value is None:
+        return ""
+    number = float(value)
+    return str(int(number)) if number.is_integer() else str(number)
 
 
-def _optional_widget_number(value: float, supplied: bool) -> Optional[float]:
-    return float(value) if supplied else None
+def startup_widget_state(profile: Mapping[str, Any]) -> Dict[str, Any]:
+    """Return the keyed Streamlit widget state for a normalized profile."""
+    startup = normalize_startup_data(profile)
+    state = {f"profile_{field}": startup[field] for field in TEXT_FIELDS}
+    state.update({f"profile_{field}": _number_text(startup[field]) for field in FLOAT_FIELDS + INTEGER_FIELDS})
+    return state
 
 
 def _select_index(options: Tuple[str, ...], value: str, fallback: int) -> int:
     return options.index(value) if value in options else fallback
 
 
+def _options_with_value(options: Tuple[str, ...], value: str) -> Tuple[str, ...]:
+    return options if value in options else options + (value,)
+
+
 def render_startup_input_form(initial: Optional[Mapping[str, Any]] = None) -> Optional[Dict[str, Any]]:
-    """Render the complete Streamlit input form and return valid submitted data."""
+    """Render a grouped, blank-friendly form and return valid submitted data."""
     import streamlit as st
 
     startup = normalize_startup_data(initial or DEFAULT_STARTUP)
     with st.form("startup_profile_form"):
-        st.markdown("### Company and product")
+        st.caption("Required fields are marked with *. Leave unknown metrics blank—missing evidence is handled explicitly in the scorecard.")
+        st.markdown('<div class="form-section-title"><span>01</span> Company thesis</div>', unsafe_allow_html=True)
         company_left, company_right = st.columns(2)
         with company_left:
-            startup_name = st.text_input("Startup name *", value=startup["startup_name"])
-            industries = ("Enterprise Software", "Fintech", "Healthcare", "Climate Tech", "Consumer", "Marketplace", "Developer Tools", "Other")
-            industry = st.selectbox("Industry / sector", industries, index=_select_index(industries, startup["industry"], 7))
-            stages = ("Pre-seed", "Seed", "Series A", "Series B", "Growth")
-            stage = st.selectbox("Stage", stages, index=_select_index(stages, startup["stage"], 1))
-            geography = st.text_input("Primary geography", value=startup["geography"])
+            startup_name = st.text_input("Startup name *", value=startup["startup_name"], placeholder="e.g. AtlasGrid", key="profile_startup_name")
+            industries = _options_with_value(("Enterprise Software", "Fintech", "Healthcare", "Climate Tech", "Consumer", "Marketplace", "Developer Tools", "Other"), startup["industry"])
+            industry = st.selectbox("Industry / sector", industries, index=_select_index(industries, startup["industry"], 0), key="profile_industry")
+            stages = _options_with_value(("Pre-seed", "Seed", "Series A", "Series B", "Growth"), startup["stage"])
+            stage = st.selectbox("Stage", stages, index=_select_index(stages, startup["stage"], 1), key="profile_stage")
+            geography = st.text_input("Primary geography", value=startup["geography"], placeholder="e.g. United States", key="profile_geography")
         with company_right:
-            models = ("B2B SaaS", "B2C Subscription", "Marketplace", "Usage-based", "Transaction fee", "Hardware + software", "Other")
-            business_model = st.selectbox("Business model", models, index=_select_index(models, startup["business_model"], 6))
-            revenue_model = st.text_input("Revenue model", value=startup["revenue_model"])
-            target_customer = st.text_input("Target customer *", value=startup["target_customer"])
-        problem_statement = st.text_area("Problem being solved", value=startup["problem_statement"])
-        product_description = st.text_area("Product description *", value=startup["product_description"])
+            models = _options_with_value(("B2B SaaS", "B2C Subscription", "Marketplace", "Usage-based", "Transaction fee", "Hardware + software", "Other"), startup["business_model"])
+            business_model = st.selectbox("Business model", models, index=_select_index(models, startup["business_model"], 0), key="profile_business_model")
+            revenue_model = st.text_input("Revenue model", value=startup["revenue_model"], placeholder="e.g. Annual subscription", key="profile_revenue_model")
+            target_customer = st.text_input("Target customer *", value=startup["target_customer"], placeholder="e.g. Multi-site industrial operators", key="profile_target_customer")
+        problem_statement = st.text_area("Problem being solved", value=startup["problem_statement"], placeholder="What is painful, expensive, or inefficient today?", key="profile_problem_statement")
+        product_description = st.text_area("Product description *", value=startup["product_description"], placeholder="Describe the product in plain language.", key="profile_product_description")
 
-        st.markdown("### Market and positioning")
+        st.markdown('<div class="form-section-title"><span>02</span> Market and positioning</div>', unsafe_allow_html=True)
         market_left, market_right = st.columns(2)
         with market_left:
-            estimated_market_size = st.number_input("Estimated addressable market ($)", min_value=0.0, value=_number_value(startup, "estimated_market_size"), step=1_000_000.0, key="input_estimated_market_size")
-            market_size_supplied = st.checkbox("Use market-size value", value=startup["estimated_market_size"] is not None, key="supplied_estimated_market_size")
-            market_growth_rate = st.number_input("Estimated annual market growth (%)", min_value=0.0, max_value=100.0, value=_number_value(startup, "market_growth_rate"), step=1.0, key="input_market_growth_rate")
-            market_growth_supplied = st.checkbox("Use market-growth value", value=startup["market_growth_rate"] is not None, key="supplied_market_growth_rate")
+            estimated_market_size = st.text_input("Addressable market · USD", value=_number_text(startup["estimated_market_size"]), placeholder="e.g. 5000000000", help="Digits only; leave blank if unknown.", key="profile_estimated_market_size")
+            market_growth_rate = st.text_input("Annual market growth · %", value=_number_text(startup["market_growth_rate"]), placeholder="e.g. 12", help="Enter 12 for 12%; leave blank if unknown.", key="profile_market_growth_rate")
+            market_notes = st.text_area("Market evidence", value=startup["market_notes"], placeholder="Record the source, bottom-up calculation, or key assumptions.", key="profile_market_notes")
         with market_right:
-            market_notes = st.text_area("Market evidence / notes", value=startup["market_notes"])
-            differentiation = st.text_area("Product differentiation", value=startup["differentiation"])
-        competitors = st.text_area("Key competitors", value=startup["competitors"])
+            competitors = st.text_area("Competitive set", value=startup["competitors"], placeholder="Direct competitors; internal tools; doing nothing", key="profile_competitors")
+            differentiation = st.text_area("Differentiation thesis", value=startup["differentiation"], placeholder="Why do customers choose this company?", key="profile_differentiation")
 
-        st.markdown("### Traction and unit economics")
-        traction_columns = st.columns(3)
-        numeric_widgets: Dict[str, Tuple[float, bool]] = {}
+        st.markdown('<div class="form-section-title"><span>03</span> Traction and unit economics</div>', unsafe_allow_html=True)
+        traction_columns = st.columns(4)
         traction_fields = (
-            ("current_arr", "Current ARR / annual revenue ($)", 10_000.0),
-            ("revenue_growth_rate", "Annual revenue growth (%)", 1.0),
-            ("customer_count", "Customer count", 1.0),
-            ("gross_margin", "Gross margin (%)", 1.0),
-            ("cac", "Customer acquisition cost ($)", 100.0),
-            ("ltv", "Customer lifetime value ($)", 100.0),
-            ("retention_rate", "Annual customer retention (%)", 1.0),
+            ("current_arr", "ARR / revenue · USD", "e.g. 750000"),
+            ("revenue_growth_rate", "Annual growth · %", "e.g. 65"),
+            ("customer_count", "Paying customers", "e.g. 30"),
+            ("gross_margin", "Gross margin · %", "e.g. 78"),
+            ("cac", "CAC · USD", "e.g. 12000"),
+            ("ltv", "LTV · USD", "e.g. 48000"),
+            ("retention_rate", "Annual retention · %", "e.g. 90"),
         )
-        for position, (field, label, step) in enumerate(traction_fields):
-            with traction_columns[position % 3]:
-                value = st.number_input(label, min_value=0.0, max_value=100.0 if field in PERCENTAGE_FIELDS else None, value=_number_value(startup, field), step=step, key=f"input_{field}")
-                supplied = st.checkbox(f"Use {label.lower()}", value=startup[field] is not None, key=f"supplied_{field}")
-                numeric_widgets[field] = (value, supplied)
+        numeric_widgets: Dict[str, str] = {}
+        for position, (field, label, placeholder) in enumerate(traction_fields):
+            with traction_columns[position % 4]:
+                numeric_widgets[field] = st.text_input(label, value=_number_text(startup[field]), placeholder=placeholder, key=f"profile_{field}")
 
-        st.markdown("### Financial position")
-        finance_columns = st.columns(3)
+        st.markdown('<div class="form-section-title"><span>04</span> Financial position</div>', unsafe_allow_html=True)
+        finance_columns = st.columns(4)
         finance_fields = (
-            ("monthly_burn_rate", "Monthly burn rate ($)", 10_000.0),
-            ("runway_months", "Runway (months)", 1.0),
-            ("funding_raised", "Funding raised ($)", 100_000.0),
-            ("valuation", "Latest valuation ($)", 1_000_000.0),
+            ("monthly_burn_rate", "Monthly burn · USD", "e.g. 150000"),
+            ("runway_months", "Runway · months", "e.g. 16"),
+            ("funding_raised", "Funding raised · USD", "e.g. 2500000"),
+            ("valuation", "Latest valuation · USD", "e.g. 12000000"),
         )
-        for position, (field, label, step) in enumerate(finance_fields):
-            with finance_columns[position % 3]:
-                value = st.number_input(label, min_value=0.0, value=_number_value(startup, field), step=step, key=f"input_{field}")
-                supplied = st.checkbox(f"Use {label.lower()}", value=startup[field] is not None, key=f"supplied_{field}")
-                numeric_widgets[field] = (value, supplied)
+        for position, (field, label, placeholder) in enumerate(finance_fields):
+            with finance_columns[position]:
+                numeric_widgets[field] = st.text_input(label, value=_number_text(startup[field]), placeholder=placeholder, key=f"profile_{field}")
 
-        st.markdown("### Team and risks")
-        founder_notes = st.text_area("Founder / team notes", value=startup["founder_notes"])
-        risk_notes = st.text_area("Known risks", value=startup["risk_notes"])
-        submitted = st.form_submit_button("Analyze startup", type="primary", use_container_width=True)
+        st.markdown('<div class="form-section-title"><span>05</span> Team and known risks</div>', unsafe_allow_html=True)
+        team_left, team_right = st.columns(2)
+        with team_left:
+            founder_notes = st.text_area("Founder / team evidence", value=startup["founder_notes"], placeholder="Relevant operating history, role coverage, and hiring gaps", key="profile_founder_notes")
+        with team_right:
+            risk_notes = st.text_area("Known risks", value=startup["risk_notes"], placeholder="Commercial, technical, regulatory, team, or financing concerns", key="profile_risk_notes")
+        submitted = st.form_submit_button("Save profile and calculate score", type="primary", width="stretch")
     if not submitted:
         return None
 
@@ -255,14 +296,18 @@ def render_startup_input_form(initial: Optional[Mapping[str, Any]] = None) -> Op
         "business_model": business_model, "problem_statement": problem_statement,
         "product_description": product_description, "target_customer": target_customer,
         "geography": geography, "stage": stage, "revenue_model": revenue_model,
-        "estimated_market_size": _optional_widget_number(estimated_market_size, market_size_supplied),
-        "market_growth_rate": _optional_widget_number(market_growth_rate, market_growth_supplied),
+        "estimated_market_size": estimated_market_size,
+        "market_growth_rate": market_growth_rate,
         "market_notes": market_notes, "competitors": competitors,
         "differentiation": differentiation, "founder_notes": founder_notes,
         "risk_notes": risk_notes,
     }
-    raw.update({field: _optional_widget_number(value, supplied) for field, (value, supplied) in numeric_widgets.items()})
-    profile = normalize_startup_data(raw)
+    raw.update(numeric_widgets)
+    try:
+        profile = normalize_startup_data(raw)
+    except ValueError as exc:
+        st.error(f"Check the numeric fields: {exc}")
+        return None
     errors, warnings = validate_startup_data(profile)
     if errors:
         for error in errors:

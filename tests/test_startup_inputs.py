@@ -5,6 +5,11 @@ from io import StringIO
 import pytest
 
 from src.startup_inputs import (
+    CSV_FIELD_DEFINITIONS,
+    CSV_TEMPLATE_PATH,
+    FLOAT_FIELDS,
+    INTEGER_FIELDS,
+    TEXT_FIELDS,
     blank_startup,
     load_sample_startups,
     load_startup_csv,
@@ -55,6 +60,19 @@ def test_bundled_samples_are_valid_and_fictional():
         errors, _ = validate_startup_data(profile)
         assert errors == []
         assert profile["startup_name"]
+
+
+def test_downloadable_csv_template_matches_the_supported_schema():
+    profiles = load_startup_csv(CSV_TEMPLATE_PATH)
+    assert len(profiles) == 1
+    assert profiles[0]["startup_name"] == "ExampleCo"
+    assert profiles[0]["gross_margin"] == 78
+
+
+def test_csv_data_dictionary_covers_every_supported_field():
+    documented = {field[0] for field in CSV_FIELD_DEFINITIONS}
+    supported = set(TEXT_FIELDS + FLOAT_FIELDS + INTEGER_FIELDS)
+    assert documented == supported
 
 
 def test_uploaded_csv_requires_core_columns():

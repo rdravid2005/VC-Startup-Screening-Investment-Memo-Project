@@ -1,10 +1,14 @@
 [theme]
-base = "dark"
-primaryColor = "#34D3B5"
-backgroundColor = "#07111F"
-secondaryBackgroundColor = "#0D1B2A"
-textColor = "#E8EEF6"
+base = "light"
+primaryColor = "#C9573D"
+backgroundColor = "#F3F0E7"
+secondaryBackgroundColor = "#FBFAF6"
+textColor = "#17201B"
 font = "sans serif"
+baseRadius = "2px"
+buttonRadius = "2px"
+borderColor = "#D8D4C9"
+showWidgetBorder = true
 
 [browser]
 gatherUsageStats = false

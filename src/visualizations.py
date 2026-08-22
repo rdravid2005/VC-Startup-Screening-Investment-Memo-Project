@@ -1,4 +1,4 @@
-"""Reusable Plotly figures for the screening dashboards."""
+"""Purpose-led Plotly figures for the screening dashboards."""
 
 from __future__ import annotations
 
@@ -7,22 +7,21 @@ from typing import Any, Mapping, Sequence
 import plotly.graph_objects as go
 
 
-NAVY = "#07111F"
-PANEL = "#0D1B2A"
-TEXT = "#E8EEF6"
-MUTED = "#91A3B7"
-TEAL = "#34D3B5"
-BLUE = "#5B8FF9"
-AMBER = "#F5B84B"
-RED = "#F06A6A"
-GRID = "rgba(145, 163, 183, 0.16)"
+PAPER = "#F7F4EC"
+INK = "#17201B"
+MUTED = "#6D746E"
+LINE = "#D8D4C9"
+RUST = "#C9573D"
+GREEN = "#236B53"
+AMBER = "#B7791F"
+RED = "#B74A3B"
 
 
 def _score_color(score: float) -> str:
     if score >= 80:
-        return TEAL
+        return GREEN
     if score >= 60:
-        return BLUE
+        return "#315F78"
     if score >= 40:
         return AMBER
     return RED
@@ -31,82 +30,98 @@ def _score_color(score: float) -> str:
 def _base_layout(figure: go.Figure, height: int) -> go.Figure:
     figure.update_layout(
         height=height,
-        margin=dict(l=24, r=24, t=40, b=24),
+        margin=dict(l=18, r=30, t=24, b=20),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="Inter, ui-sans-serif, sans-serif", color=TEXT),
-        hoverlabel=dict(bgcolor=PANEL, font_color=TEXT, bordercolor=GRID),
+        font=dict(family="Arial, ui-sans-serif, sans-serif", color=INK, size=12),
+        hoverlabel=dict(bgcolor=INK, font_color=PAPER, bordercolor=INK),
         showlegend=False,
     )
     return figure
 
 
-def build_score_radar_chart(categories: Mapping[str, Mapping[str, Any]]) -> go.Figure:
-    """Build a closed radar chart from category score results."""
-    labels = list(categories)
+def build_score_profile_chart(categories: Mapping[str, Mapping[str, Any]]) -> go.Figure:
+    """Compare category scores with a restrained horizontal lollipop chart."""
+    labels = list(categories)[::-1]
     scores = [categories[label]["score"] for label in labels]
-    figure = go.Figure(
-        go.Scatterpolar(
-            r=scores + [scores[0]],
-            theta=labels + [labels[0]],
-            fill="toself",
-            fillcolor="rgba(52, 211, 181, 0.16)",
-            line=dict(color=TEAL, width=3),
-            marker=dict(color=TEAL, size=7),
-            hovertemplate="%{theta}<br><b>%{r}/100</b><extra></extra>",
+    colors = [_score_color(score) for score in scores]
+    figure = go.Figure()
+    for label, score, color in zip(labels, scores, colors):
+        figure.add_shape(type="line", x0=0, x1=score, y0=label, y1=label, line=dict(color=LINE, width=4))
+        figure.add_trace(
+            go.Scatter(
+                x=[score], y=[label], mode="markers+text",
+                marker=dict(size=13, color=color, line=dict(width=2, color=PAPER)),
+                text=[str(score)], textposition="middle right",
+                textfont=dict(color=INK, size=12),
+                hovertemplate=f"{label}<br><b>{score}/100</b><extra></extra>",
+            )
         )
+    _base_layout(figure, 430)
+    figure.update_xaxes(
+        range=[0, 108], tickvals=[0, 20, 40, 60, 80, 100],
+        tickfont=dict(color=MUTED, size=10), gridcolor="#E8E4DB",
+        zeroline=False, title=None, side="top",
     )
-    _base_layout(figure, 480)
-    figure.update_layout(
-        polar=dict(
-            bgcolor="rgba(0,0,0,0)",
-            radialaxis=dict(range=[0, 100], tickvals=[20, 40, 60, 80, 100], tickfont=dict(color=MUTED, size=10), gridcolor=GRID, linecolor=GRID),
-            angularaxis=dict(tickfont=dict(color=TEXT, size=11), gridcolor=GRID, linecolor=GRID),
-        )
-    )
+    figure.update_yaxes(showgrid=False, tickfont=dict(color=INK, size=11), title=None)
     return figure
 
 
-def build_score_bar_chart(categories: Mapping[str, Mapping[str, Any]]) -> go.Figure:
-    """Build a horizontal category comparison chart."""
-    labels = list(categories)
-    scores = [categories[label]["score"] for label in labels]
-    colors = [_score_color(score) for score in scores]
+def build_weighted_contribution_chart(categories: Mapping[str, Mapping[str, Any]]) -> go.Figure:
+    """Show how much each category contributes to the overall score."""
+    rows = sorted(
+        (
+            (name, result["score"] * result["weight"], result["weight"])
+            for name, result in categories.items()
+        ),
+        key=lambda row: row[1],
+    )
+    labels = [row[0] for row in rows]
+    contributions = [row[1] for row in rows]
+    weights = [row[2] for row in rows]
     figure = go.Figure(
         go.Bar(
-            x=scores[::-1],
-            y=labels[::-1],
+            x=contributions,
+            y=labels,
             orientation="h",
-            marker=dict(color=colors[::-1], cornerradius=5),
-            text=[f"{score}" for score in scores[::-1]],
+            marker=dict(color=RUST),
+            customdata=weights,
+            text=[f"{value:.1f}" for value in contributions],
             textposition="outside",
-            textfont=dict(color=TEXT),
-            cliponaxis=False,
-            hovertemplate="%{y}<br><b>%{x}/100</b><extra></extra>",
+            textfont=dict(color=INK),
+            hovertemplate="%{y}<br><b>%{x:.1f} points</b><br>Weight: %{customdata:.0%}<extra></extra>",
         )
     )
-    _base_layout(figure, 480)
-    figure.update_xaxes(range=[0, 108], showgrid=True, gridcolor=GRID, zeroline=False, tickfont=dict(color=MUTED), title=None)
-    figure.update_yaxes(showgrid=False, tickfont=dict(color=TEXT, size=11), title=None)
+    _base_layout(figure, 430)
+    figure.update_xaxes(
+        range=[0, max(contributions + [1]) * 1.18],
+        showgrid=True, gridcolor="#E8E4DB", zeroline=False,
+        tickfont=dict(color=MUTED, size=10), title=None, side="top",
+    )
+    figure.update_yaxes(showgrid=False, tickfont=dict(color=INK, size=11), title=None)
     return figure
 
 
 def build_risk_summary_chart(flags: Sequence[Mapping[str, str]]) -> go.Figure:
-    """Build a compact severity distribution chart."""
+    """Show the risk register as one compact part-to-whole bar."""
     severities = ("High", "Medium", "Context")
-    counts = [sum(flag.get("severity") == severity for flag in flags) for severity in severities]
-    figure = go.Figure(
-        go.Bar(
-            x=severities,
-            y=counts,
-            marker=dict(color=[RED, AMBER, BLUE], cornerradius=5),
-            text=counts,
-            textposition="outside",
-            hovertemplate="%{x}: <b>%{y}</b><extra></extra>",
+    colors = (RED, AMBER, "#637C8A")
+    figure = go.Figure()
+    for severity, color in zip(severities, colors):
+        count = sum(flag.get("severity") == severity for flag in flags)
+        figure.add_trace(
+            go.Bar(
+                x=[count], y=["Flags"], orientation="h", name=severity,
+                marker=dict(color=color), text=[str(count) if count else ""],
+                textposition="inside", insidetextanchor="middle",
+                hovertemplate=f"{severity}: <b>{count}</b><extra></extra>",
+            )
         )
+    _base_layout(figure, 145)
+    figure.update_layout(
+        barmode="stack", showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="left", x=0, font=dict(color=MUTED, size=10)),
     )
-    _base_layout(figure, 260)
-    upper = max(counts + [1]) + 1
-    figure.update_yaxes(range=[0, upper], dtick=1, gridcolor=GRID, zeroline=False, tickfont=dict(color=MUTED), title=None)
-    figure.update_xaxes(showgrid=False, tickfont=dict(color=TEXT), title=None)
+    figure.update_xaxes(showgrid=False, zeroline=False, showticklabels=False, title=None)
+    figure.update_yaxes(showgrid=False, showticklabels=False, title=None)
     return figure
