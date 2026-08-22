@@ -2,6 +2,13 @@
 
 import streamlit as st
 
+from src.startup_inputs import (
+    load_sample_startups,
+    load_startup_csv,
+    profile_options,
+    render_startup_input_form,
+)
+
 
 st.set_page_config(
     page_title="AI VC Investment Screener",
@@ -47,6 +54,42 @@ def render_placeholder(title: str, description: str) -> None:
     st.info(description)
 
 
+def render_startup_screener() -> None:
+    """Render sample selection, CSV upload, and the startup form."""
+    st.title("Startup Screener")
+    st.write("Load a fictional company, upload compatible CSV data, or enter a startup manually.")
+
+    source_tab, upload_tab = st.tabs(("Fictional samples", "Upload CSV"))
+    selected_profile = st.session_state.get("startup_profile")
+    with source_tab:
+        samples = profile_options(load_sample_startups())
+        sample_name = st.selectbox("Sample startup", tuple(samples))
+        if st.button("Load sample", use_container_width=True):
+            selected_profile = samples[sample_name]
+            st.session_state["startup_form_seed"] = selected_profile
+            st.success(f"Loaded {sample_name}. Review the profile and select Analyze startup.")
+    with upload_tab:
+        upload = st.file_uploader("Startup profiles CSV", type=("csv",))
+        if upload is not None:
+            try:
+                uploaded_profiles = profile_options(load_startup_csv(upload))
+                upload_name = st.selectbox("Uploaded startup", tuple(uploaded_profiles))
+                if st.button("Use uploaded profile", use_container_width=True):
+                    selected_profile = uploaded_profiles[upload_name]
+                    st.session_state["startup_form_seed"] = selected_profile
+                    st.success(f"Loaded {upload_name}.")
+            except ValueError as exc:
+                st.error(str(exc))
+
+    st.divider()
+    seed = st.session_state.get("startup_form_seed", selected_profile)
+    profile = render_startup_input_form(seed)
+    if profile is not None:
+        st.session_state["startup_profile"] = profile
+        st.session_state.pop("scorecard", None)
+        st.success("Profile saved. Continue to the Scoring Dashboard when ready.")
+
+
 def main() -> None:
     """Run the application shell and sidebar navigation."""
     st.sidebar.markdown("## VentureLens")
@@ -61,10 +104,7 @@ def main() -> None:
     if page == "Home":
         render_home()
     elif page == "Startup Screener":
-        render_placeholder(
-            "Startup Screener",
-            "The manual input form and fictional sample loader are the next build step.",
-        )
+        render_startup_screener()
     elif page == "Scoring Dashboard":
         render_placeholder(
             "Scoring Dashboard",
@@ -79,4 +119,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
