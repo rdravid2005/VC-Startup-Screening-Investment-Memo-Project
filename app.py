@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from html import escape
+import re
 from typing import Any, Mapping, Optional
 
 import streamlit as st
 
 from src.scoring_model import CATEGORY_WEIGHTS, score_startup
+from src.memo_generator import build_fallback_memo, build_memo_payload, generate_investment_memo, has_api_key
 from src.startup_inputs import (
     load_sample_startups,
     load_startup_csv,
@@ -253,6 +255,7 @@ def render_startup_screener() -> None:
     if profile is not None:
         st.session_state["startup_profile"] = profile
         st.session_state.pop("scorecard", None)
+        st.session_state.pop("memo_result", None)
         selected_profile = profile
         st.success("Profile saved and ready for scoring.")
 
@@ -367,13 +370,83 @@ def render_scoring_dashboard() -> None:
     st.caption("Thresholds are documented in src/scoring_model.py. They are illustrative screening heuristics, not statistically validated predictors.")
 
 
-def render_memo_placeholder() -> None:
+def render_memo_page() -> None:
+    """Render guarded AI/local memo generation, preview, and download."""
     st.markdown('<div class="eyebrow">03 / Structured synthesis</div>', unsafe_allow_html=True)
     st.title("AI Investment Memo")
-    if get_profile() is None:
+    profile = get_profile()
+    if profile is None:
         render_empty_state("AI Investment Memo")
         return
-    st.info("Memo generation is the next implementation phase. Your active profile and scorecard are ready.")
+    scorecard = get_scorecard(profile)
+    render_profile_header(profile)
+    st.write("")
+
+    summary_columns = st.columns(3)
+    with summary_columns[0]:
+        st.metric("Overall screen", f'{scorecard["overall_score"]}/100', scorecard["overall_label"])
+    with summary_columns[1]:
+        st.metric("Risk rating", scorecard["risk_rating"])
+    with summary_columns[2]:
+        st.metric("Evidence completeness", f'{scorecard["data_completeness"]}%')
+
+    st.markdown("### Generation settings")
+    settings, explanation = st.columns((2, 3))
+    with settings:
+        mode = st.radio(
+            "Memo engine",
+            ("Local deterministic memo", "OpenAI-assisted memo"),
+            help="The local engine makes no network request. AI-assisted generation sends the structured profile and scorecard to the OpenAI API.",
+        )
+        if mode == "OpenAI-assisted memo":
+            if has_api_key():
+                st.success("OpenAI API key detected. The secret is never displayed or stored in the memo.")
+            else:
+                st.warning("No API key detected. The app will safely use the complete local fallback.")
+    with explanation:
+        st.markdown("#### Evidence boundary")
+        st.write(
+            "The memo receives the normalized company profile, category scores, score rationales, "
+            "risk flags, and diligence questions. It is instructed not to introduce outside facts."
+        )
+        st.caption("AI-assisted mode sends the displayed structured evidence to the configured OpenAI API account.")
+
+    with st.expander("Preview structured memo inputs"):
+        st.json(build_memo_payload(profile, scorecard))
+
+    button_label = "Generate AI-assisted memo" if mode == "OpenAI-assisted memo" else "Generate local memo"
+    if st.button(button_label, type="primary", use_container_width=True):
+        with st.spinner("Synthesizing the screening evidence…"):
+            if mode == "OpenAI-assisted memo":
+                result = generate_investment_memo(profile, scorecard)
+            else:
+                result = {
+                    "content": build_fallback_memo(profile, scorecard),
+                    "source": "Local deterministic fallback",
+                    "model": None,
+                    "warning": None,
+                }
+            st.session_state["memo_result"] = result
+
+    result = st.session_state.get("memo_result")
+    if result:
+        st.divider()
+        source_note = result["source"]
+        if result.get("model"):
+            source_note += f' · {result["model"]}'
+        st.caption(f"MEMO SOURCE · {source_note}")
+        if result.get("warning"):
+            st.warning(result["warning"])
+        st.markdown(result["content"])
+        safe_name = re.sub(r"[^a-z0-9]+", "-", profile["startup_name"].lower()).strip("-") or "startup"
+        st.download_button(
+            "Download memo (.md)",
+            data=result["content"],
+            file_name=f"{safe_name}-investment-memo.md",
+            mime="text/markdown",
+            use_container_width=True,
+        )
+        st.caption("Educational analysis only—not investment advice or a substitute for independent diligence.")
 
 
 def main() -> None:
@@ -406,7 +479,7 @@ def main() -> None:
     elif page == "Scoring Dashboard":
         render_scoring_dashboard()
     else:
-        render_memo_placeholder()
+        render_memo_page()
 
 
 if __name__ == "__main__":
