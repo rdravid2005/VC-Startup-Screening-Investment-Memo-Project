@@ -202,10 +202,10 @@ def render_startup_input_form(initial: Optional[Mapping[str, Any]] = None) -> Op
         st.markdown("### Market and positioning")
         market_left, market_right = st.columns(2)
         with market_left:
-            estimated_market_size = st.number_input("Estimated addressable market ($)", min_value=0.0, value=_number_value(startup, "estimated_market_size"), step=1_000_000.0)
-            market_size_supplied = st.checkbox("Use market-size value", value=startup["estimated_market_size"] is not None)
-            market_growth_rate = st.number_input("Estimated annual market growth (%)", min_value=0.0, max_value=100.0, value=_number_value(startup, "market_growth_rate"), step=1.0)
-            market_growth_supplied = st.checkbox("Use market-growth value", value=startup["market_growth_rate"] is not None)
+            estimated_market_size = st.number_input("Estimated addressable market ($)", min_value=0.0, value=_number_value(startup, "estimated_market_size"), step=1_000_000.0, key="input_estimated_market_size")
+            market_size_supplied = st.checkbox("Use market-size value", value=startup["estimated_market_size"] is not None, key="supplied_estimated_market_size")
+            market_growth_rate = st.number_input("Estimated annual market growth (%)", min_value=0.0, max_value=100.0, value=_number_value(startup, "market_growth_rate"), step=1.0, key="input_market_growth_rate")
+            market_growth_supplied = st.checkbox("Use market-growth value", value=startup["market_growth_rate"] is not None, key="supplied_market_growth_rate")
         with market_right:
             market_notes = st.text_area("Market evidence / notes", value=startup["market_notes"])
             differentiation = st.text_area("Product differentiation", value=startup["differentiation"])

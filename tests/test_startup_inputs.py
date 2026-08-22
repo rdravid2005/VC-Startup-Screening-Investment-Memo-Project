@@ -69,4 +69,3 @@ def test_uploaded_csv_reports_invalid_rows():
     )
     with pytest.raises(ValueError, match="Row 2"):
         load_startup_csv(csv)
-

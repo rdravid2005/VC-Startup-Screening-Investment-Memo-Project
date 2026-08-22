@@ -81,4 +81,3 @@ Based only on the supplied information, AtlasGrid appears **strong as a first-pa
 ---
 
 *This memo is for educational purposes only. It is not investment advice, does not predict outcomes, and does not replace independent legal, financial, commercial, or technical diligence.*
-

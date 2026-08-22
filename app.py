@@ -11,6 +11,8 @@ import streamlit as st
 from src.scoring_model import CATEGORY_WEIGHTS, score_startup
 from src.memo_generator import build_fallback_memo, build_memo_payload, generate_investment_memo, has_api_key
 from src.startup_inputs import (
+    FLOAT_FIELDS,
+    INTEGER_FIELDS,
     load_sample_startups,
     load_startup_csv,
     profile_options,
@@ -118,6 +120,14 @@ def get_scorecard(profile: Mapping[str, Any]) -> Mapping[str, Any]:
         cached = score_startup(profile)
         st.session_state["scorecard"] = cached
     return cached
+
+
+def seed_numeric_widgets(profile: Mapping[str, Any]) -> None:
+    """Synchronize optional numeric widget state when a new profile is loaded."""
+    for field in FLOAT_FIELDS + INTEGER_FIELDS:
+        value = profile.get(field)
+        st.session_state[f"input_{field}"] = 0.0 if value is None else float(value)
+        st.session_state[f"supplied_{field}"] = value is not None
 
 
 def render_home() -> None:
@@ -234,6 +244,7 @@ def render_startup_screener() -> None:
         if st.button("Load sample", use_container_width=True):
             selected_profile = samples[sample_name]
             st.session_state["startup_form_seed"] = selected_profile
+            seed_numeric_widgets(selected_profile)
             st.success(f"Loaded {sample_name}. Review the profile and select Analyze startup.")
     with upload_tab:
         upload = st.file_uploader("Startup profiles CSV", type=("csv",))
@@ -245,6 +256,7 @@ def render_startup_screener() -> None:
                 if st.button("Use uploaded profile", use_container_width=True):
                     selected_profile = uploaded_profiles[upload_name]
                     st.session_state["startup_form_seed"] = selected_profile
+                    seed_numeric_widgets(selected_profile)
                     st.success(f"Loaded {upload_name}.")
             except ValueError as exc:
                 st.error(str(exc))
