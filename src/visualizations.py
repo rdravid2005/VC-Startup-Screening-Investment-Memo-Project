@@ -11,7 +11,8 @@ PAPER = "#F7F4EC"
 INK = "#17201B"
 MUTED = "#6D746E"
 LINE = "#D8D4C9"
-RUST = "#C9573D"
+RUST = "#B94732"
+TEAL = "#16796F"
 GREEN = "#236B53"
 AMBER = "#B7791F"
 RED = "#B74A3B"
@@ -21,7 +22,7 @@ def _score_color(score: float) -> str:
     if score >= 80:
         return GREEN
     if score >= 60:
-        return "#315F78"
+        return TEAL
     if score >= 40:
         return AMBER
     return RED
@@ -84,7 +85,7 @@ def build_weighted_contribution_chart(categories: Mapping[str, Mapping[str, Any]
             x=contributions,
             y=labels,
             orientation="h",
-            marker=dict(color=RUST),
+            marker=dict(color=TEAL, line=dict(color="#0E5E56", width=0.5)),
             customdata=weights,
             text=[f"{value:.1f}" for value in contributions],
             textposition="outside",
